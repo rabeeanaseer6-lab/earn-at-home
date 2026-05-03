@@ -1,0 +1,808 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.2.0
+  description: Earn at Home API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: workers
+    description: Worker management
+  - name: payments
+    description: Payment history
+  - name: admin
+    description: Admin operations
+  - name: blog
+    description: Blog posts
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /workers:
+    get:
+      operationId: listWorkers
+      tags: [workers]
+      summary: List all workers (leaderboard)
+      description: Returns all workers sorted by balance descending
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search by name or worker ID
+      responses:
+        "200":
+          description: List of workers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Worker"
+    post:
+      operationId: createWorker
+      tags: [admin]
+      summary: Create a new worker (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkerBody"
+      responses:
+        "201":
+          description: Worker created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Worker"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workers/{id}:
+    get:
+      operationId: getWorker
+      tags: [workers]
+      summary: Get a worker by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Worker details with payment history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkerDetail"
+        "404":
+          description: Worker not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateWorker
+      tags: [admin]
+      summary: Update a worker (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkerBody"
+      responses:
+        "200":
+          description: Worker updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Worker"
+        "404":
+          description: Worker not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteWorker
+      tags: [admin]
+      summary: Delete a worker (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Worker deleted
+        "404":
+          description: Worker not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workers/search:
+    get:
+      operationId: searchWorkers
+      tags: [workers]
+      summary: Search workers by name or worker ID
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query (name or worker ID)
+      responses:
+        "200":
+          description: Matching workers with detailed stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkerDetail"
+
+  /workers/{id}/stats:
+    get:
+      operationId: getWorkerStats
+      tags: [workers]
+      summary: Get detailed upload stats for a worker
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Worker upload statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkerStats"
+        "404":
+          description: Worker not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workers/{id}/stats/update:
+    patch:
+      operationId: updateWorkerStats
+      tags: [admin]
+      summary: Update upload stats for a worker (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkerStatsBody"
+      responses:
+        "200":
+          description: Stats updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkerStats"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workers/{id}/payments:
+    get:
+      operationId: listWorkerPayments
+      tags: [payments]
+      summary: Get payment history for a worker
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Payment"
+        "404":
+          description: Worker not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: addPayment
+      tags: [admin]
+      summary: Add a payment for a worker (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentBody"
+      responses:
+        "201":
+          description: Payment added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /workers/{id}/payments/{paymentId}:
+    delete:
+      operationId: deletePayment
+      tags: [admin]
+      summary: Delete a payment (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Payment deleted
+        "404":
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/verify:
+    get:
+      operationId: adminVerify
+      tags: [admin]
+      summary: Verify admin session
+      responses:
+        "200":
+          description: Session valid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [workers]
+      summary: Get leaderboard stats
+      description: Returns top workers and summary statistics
+      responses:
+        "200":
+          description: Leaderboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaderboardResponse"
+
+  /blog:
+    get:
+      operationId: listBlogPosts
+      tags: [blog]
+      summary: List published blog posts
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: tag
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of blog posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BlogPost"
+    post:
+      operationId: createBlogPost
+      tags: [admin]
+      summary: Create a blog post (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBlogPostBody"
+      responses:
+        "201":
+          description: Blog post created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlogPost"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /blog/{slug}:
+    get:
+      operationId: getBlogPost
+      tags: [blog]
+      summary: Get a blog post by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Blog post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlogPost"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateBlogPost
+      tags: [admin]
+      summary: Update a blog post (admin only)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBlogPostBody"
+      responses:
+        "200":
+          description: Blog post updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlogPost"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteBlogPost
+      tags: [admin]
+      summary: Delete a blog post (admin only)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    Worker:
+      type: object
+      properties:
+        id:
+          type: integer
+        workerId:
+          type: string
+        name:
+          type: string
+        balance:
+          type: number
+        rank:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - workerId
+        - name
+        - balance
+        - rank
+        - createdAt
+
+    WorkerDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        workerId:
+          type: string
+        name:
+          type: string
+        balance:
+          type: number
+        rank:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        payments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Payment"
+        totalUploads:
+          type: integer
+        validCount:
+          type: integer
+        duplicateCount:
+          type: integer
+        payableAmount:
+          type: number
+      required:
+        - id
+        - workerId
+        - name
+        - balance
+        - rank
+        - createdAt
+        - payments
+        - totalUploads
+        - validCount
+        - duplicateCount
+        - payableAmount
+
+    WorkerStats:
+      type: object
+      properties:
+        workerId:
+          type: integer
+        totalUploads:
+          type: integer
+        validCount:
+          type: integer
+        duplicateCount:
+          type: integer
+        payableAmount:
+          type: number
+        ratePerImage:
+          type: number
+      required:
+        - workerId
+        - totalUploads
+        - validCount
+        - duplicateCount
+        - payableAmount
+        - ratePerImage
+
+    UpdateWorkerStatsBody:
+      type: object
+      properties:
+        totalUploads:
+          type: integer
+        validCount:
+          type: integer
+        duplicateCount:
+          type: integer
+
+    CreateWorkerBody:
+      type: object
+      properties:
+        name:
+          type: string
+        workerId:
+          type: string
+      required:
+        - name
+        - workerId
+
+    UpdateWorkerBody:
+      type: object
+      properties:
+        name:
+          type: string
+        balance:
+          type: number
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: integer
+        workerId:
+          type: integer
+        amount:
+          type: number
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - workerId
+        - amount
+        - description
+        - createdAt
+
+    CreatePaymentBody:
+      type: object
+      properties:
+        amount:
+          type: number
+        description:
+          type: string
+      required:
+        - amount
+        - description
+
+    AdminLoginBody:
+      type: object
+      properties:
+        password:
+          type: string
+      required:
+        - password
+
+    AdminLoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        token:
+          type: string
+      required:
+        - success
+        - token
+
+    LeaderboardResponse:
+      type: object
+      properties:
+        totalWorkers:
+          type: integer
+        totalPaid:
+          type: number
+        screenshotsProcessed:
+          type: integer
+        topWorkers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Worker"
+        recentPayments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Payment"
+      required:
+        - totalWorkers
+        - totalPaid
+        - screenshotsProcessed
+        - topWorkers
+        - recentPayments
+
+    BlogPost:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        title:
+          type: string
+        excerpt:
+          type: string
+        content:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        featuredImageUrl:
+          type: ["string", "null"]
+        published:
+          type: boolean
+        publishedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - slug
+        - title
+        - excerpt
+        - content
+        - category
+        - tags
+        - featuredImageUrl
+        - published
+        - publishedAt
+        - createdAt
+
+    CreateBlogPostBody:
+      type: object
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        excerpt:
+          type: string
+        content:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        featuredImageUrl:
+          type: string
+        published:
+          type: boolean
+      required:
+        - slug
+        - title
+        - excerpt
+        - content
+        - category
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
